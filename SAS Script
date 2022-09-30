@@ -1,0 +1,67 @@
+/*Create a library connection.*/
+  libname fpcars "/home/u58487288/Cars SAS Final Project";
+/*Import the data file and store it in the library.*/
+  proc import datafile= '/home/u58487288/Cars SAS Final Project/cardata.csv'
+  out=fpcars.cardata replace;
+/*Copy the data set.*/
+  data fpcars.projectdata;
+	set fpcars.cardata; 
+*Subset the data*;
+  data fpcars.fpdata (DROP= transmission present_price owner seller_type VAR10 VAR11 VAR12);
+	  set fpcars.projectdata;
+	    IF selling_price < 15 then output;
+	    IF selling_price > 15 then delete;
+*create the ordinal variable*;
+  data fpcars.projectdata;
+	  set fpcars.cardata;
+	    IF year => 2003 and year <= 2006 then yeargroup= '1';
+	    else if year => 2007 and year <= 2010 then yeargroup= '2';
+	    else if year => 2011 and year <= 2014 then yeargroup= '3';
+	    else if year => 2015 and year <= 2018 then yeargroup= '4';
+
+*frequency tables for yeargroup*;
+proc freq data=fpcars.fpdata order=freq;
+table yeargroup;
+*scatterplot for yeargroup*;
+proc sgplot data=fpcars.fpdata;
+	title 'Bar Chart of YearGroup';
+	hbar yeargroup/ stat=percent;
+	xaxis label= 'Year Groups (Eras)';
+
+/*bivariate analysis*/
+proc freq data=fpcars.fpdata;
+	table yeargroup*fuel_type;
+/*visualizations*/
+*side-by-side bar chart*;
+proc sgplot data=fpcars.fpdata;
+	title 'Fuel Type by Year Group';
+	vbar yeargroup/ group=fuel_type groupdisplay=cluster stat=percent;
+*100% stacked bar chart*;
+proc sgplot data=fpcars.fpdata;
+	title 'Distribution of Fuel Type Given Year Group';
+	vbar yeargroup/ group=fuel_type;
+
+*numerical summaries*;
+proc means data=fpcars.fpdata
+n mean std min median max nmiss q1 q3 maxdec=3;
+var kms_driven;
+class fuel_type;
+*visualization (boxplot)*;
+proc sgplot data=fpcars.fpdata;
+vbox kms_driven / category= fuel_type;
+title "Boxplot of Kilometers Driven by Fuel Type";
+yaxis label= "Number of Kilometers Driven";
+*confidence interval*;
+proc means data=fpcars.fpdata alpha=0.05 maxdec=3;
+	var kms_driven;
+	class fuel_type;
+
+/*Drawing a SRS*/
+proc surveyselect data=fpcars.fpdata out=fpcars.srs4 method=srs
+					sampsize=29 seed=288;
+*scatterplot*;
+proc reg data=fpcars.srs4 alpha= 0.05 plots(only)=(residuals fitplot);
+		model selling_price = kms_driven; 
+*correlation*;
+proc corr data=fpcars.srs4 nomiss outp=fpcars.srs4;
+	var kms_driven selling_price;
